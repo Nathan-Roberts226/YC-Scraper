@@ -106,6 +106,6 @@ async def run_scraper(pages=1):
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
 if __name__ == "__main__":
-    print(">>> Entering run_scraper")
-    asyncio.run(run_scraper(pages=1))
+    print("✅ Script executed — Render is running the file")
+
 
