@@ -2,7 +2,7 @@ import asyncio
 import pandas as pd
 import os
 import subprocess
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
 BASE_URL = "https://www.ycombinator.com/companies"
 
@@ -72,13 +72,19 @@ async def run_scraper(pages=1):
     print("Starting YC startup scraper with Playwright...")
     all_companies = []
     async with async_playwright() as p:
-        try:
-            print("Launching browser...")
-            browser = await p.chromium.launch(headless=True)
-        except:
-            print("Missing browser binaries. Installing...")
-            subprocess.run(["playwright", "install", "chromium"], check=True)
-            browser = await p.chromium.launch(headless=True)
+        for attempt in range(2):
+            try:
+                print("Launching browser (attempt {} of 2)...".format(attempt + 1))
+                browser = await p.chromium.launch(headless=True)
+                print("✅ Browser launched successfully")
+                break
+            except Exception as e:
+                if attempt == 0:
+                    print("First launch failed, installing browser binaries...")
+                    subprocess.run(["playwright", "install", "chromium"], check=True)
+                else:
+                    print(f"❌ Failed to launch browser after retry: {e}")
+                    return
 
         for page_num in range(1, pages + 1):
             print(f"Scraping page {page_num}...")
@@ -99,5 +105,6 @@ async def run_scraper(pages=1):
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
 if __name__ == "__main__":
+    print(">>> Entering run_scraper")
     asyncio.run(run_scraper(pages=1))
 
