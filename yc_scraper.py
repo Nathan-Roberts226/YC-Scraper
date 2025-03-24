@@ -1,8 +1,8 @@
 import asyncio
 import pandas as pd
 import os
+import subprocess
 from playwright.async_api import async_playwright
-from playwright.__main__ import main as playwright_install
 
 BASE_URL = "https://www.ycombinator.com/companies"
 
@@ -69,6 +69,18 @@ async def run_scraper(pages=4):
                 all_companies.append(company_data)
         await browser.close()
 
+    df = pd.DataFrame(all_companies)
+    output_path = os.path.join(os.getcwd(), "yc_startups.xlsx")
+    df.to_excel(output_path, index=False)
+    print(f"✅ Exported {len(df)} companies to: {output_path}")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(run_scraper(pages=4))
+    except Exception as e:
+        print("Playwright error detected. Trying to install browser binaries...")
+        subprocess.run(["playwright", "install", "chromium"], check=True)
+        asyncio.run(run_scraper(pages=4))
     df = pd.DataFrame(all_companies)
     output_path = os.path.join(os.getcwd(), "yc_startups.xlsx")
     df.to_excel(output_path, index=False)
