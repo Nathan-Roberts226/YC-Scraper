@@ -1,6 +1,3 @@
-# yc_scraper.py
-# Fully turnkey YC startup scraper using Playwright. Ready for GitHub upload and Render deployment.
-
 import asyncio
 import pandas as pd
 import os
@@ -11,22 +8,33 @@ BASE_URL = "https://www.ycombinator.com/companies"
 
 async def get_company_links(page, browser):
     url = f"{BASE_URL}?page={page}"
+    print(f"Opening company list page: {url}")
     context = await browser.new_context()
     page_obj = await context.new_page()
     await page_obj.goto(url)
-    await page_obj.wait_for_timeout(5000)  # wait 5 seconds for full JS rendering
-    links = await page_obj.eval_on_selector_all(
-        "a[href*='/companies/']", "elements => elements.map(el => el.href)"
-    )
+    await page_obj.wait_for_timeout(3000)  # wait for JS rendering
+    print("Getting company links...")
+    try:
+        links = await page_obj.eval_on_selector_all(
+            "a[href*='/companies/']", "elements => elements.map(el => el.href)"
+        )
+    except Exception as e:
+        print(f"Failed to get links: {e}")
+        links = []
     await context.close()
     return links
 
 async def scrape_company(url, browser):
+    print(f"Opening company profile: {url}")
     context = await browser.new_context()
     page = await context.new_page()
-    await page.goto(url)
-    await page.wait_for_load_state("domcontentloaded")
-    await page.wait_for_timeout(3000)  # give JS more time to render content
+    try:
+        await page.goto(url)
+        await page.wait_for_load_state("domcontentloaded")
+        await page.wait_for_timeout(2000)
+    except Exception as e:
+        print(f"Error loading page {url}: {e}")
+        return {}
 
     async def safe_text(selector):
         try:
@@ -57,6 +65,7 @@ async def scrape_company(url, browser):
     }
 
     await context.close()
+    print(f"Scraped: {company['Name']}")
     return company
 
 async def run_scraper(pages=1):
@@ -64,6 +73,7 @@ async def run_scraper(pages=1):
     all_companies = []
     async with async_playwright() as p:
         try:
+            print("Launching browser...")
             browser = await p.chromium.launch(headless=True)
         except:
             print("Missing browser binaries. Installing...")
@@ -72,11 +82,15 @@ async def run_scraper(pages=1):
 
         for page_num in range(1, pages + 1):
             print(f"Scraping page {page_num}...")
-            links = await get_company_links(page_num, browser)
-            for link in links:
-                print(f" - Scraping: {link}")
-                company_data = await scrape_company(link, browser)
-                all_companies.append(company_data)
+            try:
+                links = await get_company_links(page_num, browser)
+                print(f"Found {len(links)} links on page {page_num}.")
+                for link in links:
+                    company_data = await scrape_company(link, browser)
+                    if company_data:
+                        all_companies.append(company_data)
+            except Exception as e:
+                print(f"Error scraping page {page_num}: {e}")
         await browser.close()
 
     df = pd.DataFrame(all_companies)
