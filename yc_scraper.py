@@ -2,6 +2,7 @@ import asyncio
 import pandas as pd
 import os
 from playwright.async_api import async_playwright
+from playwright.__main__ import main as playwright_install
 
 BASE_URL = "https://www.ycombinator.com/companies"
 
@@ -54,7 +55,7 @@ async def scrape_company(url, browser):
     await context.close()
     return company
 
-async def main(pages=4):
+async def run_scraper(pages=4):
     print("Starting YC startup scraper with Playwright...")
     all_companies = []
     async with async_playwright() as p:
@@ -74,4 +75,10 @@ async def main(pages=4):
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
 if __name__ == "__main__":
-    asyncio.run(main(pages=4))
+    try:
+        asyncio.run(run_scraper(pages=4))
+    except:
+        # Auto-install browsers if not already installed (for first run on Render)
+        print("Playwright browsers not found. Installing...")
+        playwright_install()
+        asyncio.run(run_scraper(pages=4))
