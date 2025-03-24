@@ -1,3 +1,6 @@
+# yc_scraper.py
+# Fully turnkey YC startup scraper using Playwright. Ready for GitHub upload and Render deployment.
+
 import asyncio
 import pandas as pd
 import os
@@ -25,15 +28,15 @@ async def scrape_company(url, browser):
     await page.wait_for_load_state("domcontentloaded")
     await page.wait_for_timeout(3000)  # give JS more time to render content
 
-    def safe_text(selector):
+    async def safe_text(selector):
         try:
-            return page.locator(selector).first.text_content().strip()
+            return (await page.locator(selector).first.text_content()).strip()
         except:
             return ""
 
-    def safe_all_text(selector):
+    async def safe_all_text(selector):
         try:
-            return ", ".join([el.strip() for el in page.locator(selector).all_text_contents()])
+            return ", ".join([el.strip() for el in await page.locator(selector).all_text_contents()])
         except:
             return ""
 
@@ -56,11 +59,17 @@ async def scrape_company(url, browser):
     await context.close()
     return company
 
-async def run_scraper(pages=4):
+async def run_scraper(pages=1):
     print("Starting YC startup scraper with Playwright...")
     all_companies = []
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except:
+            print("Missing browser binaries. Installing...")
+            subprocess.run(["playwright", "install", "chromium"], check=True)
+            browser = await p.chromium.launch(headless=True)
+
         for page_num in range(1, pages + 1):
             print(f"Scraping page {page_num}...")
             links = await get_company_links(page_num, browser)
@@ -76,9 +85,4 @@ async def run_scraper(pages=4):
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(run_scraper(pages=4))
-    except Exception as e:
-        print("Playwright error detected. Trying to install browser binaries...")
-        subprocess.run(["playwright", "install", "chromium"], check=True)
-        asyncio.run(run_scraper(pages=4))
+    asyncio.run(run_scraper(pages=1))
