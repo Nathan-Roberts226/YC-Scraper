@@ -11,9 +11,9 @@ async def get_company_links(page, browser):
     context = await browser.new_context()
     page_obj = await context.new_page()
     await page_obj.goto(url)
-    await page_obj.wait_for_selector("a[data-testid='company-card-name']")
+    await page_obj.wait_for_timeout(5000)  # wait 5 seconds for full JS rendering
     links = await page_obj.eval_on_selector_all(
-        "a[data-testid='company-card-name']", "elements => elements.map(el => el.href)"
+        "a[href*='/companies/']", "elements => elements.map(el => el.href)"
     )
     await context.close()
     return links
@@ -23,6 +23,7 @@ async def scrape_company(url, browser):
     page = await context.new_page()
     await page.goto(url)
     await page.wait_for_load_state("domcontentloaded")
+    await page.wait_for_timeout(3000)  # give JS more time to render content
 
     def safe_text(selector):
         try:
@@ -80,17 +81,4 @@ if __name__ == "__main__":
     except Exception as e:
         print("Playwright error detected. Trying to install browser binaries...")
         subprocess.run(["playwright", "install", "chromium"], check=True)
-        asyncio.run(run_scraper(pages=4))
-    df = pd.DataFrame(all_companies)
-    output_path = os.path.join(os.getcwd(), "yc_startups.xlsx")
-    df.to_excel(output_path, index=False)
-    print(f"✅ Exported {len(df)} companies to: {output_path}")
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(run_scraper(pages=4))
-    except:
-        # Auto-install browsers if not already installed (for first run on Render)
-        print("Playwright browsers not found. Installing...")
-        playwright_install()
         asyncio.run(run_scraper(pages=4))
