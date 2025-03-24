@@ -1,3 +1,4 @@
+print("✅ Script started running")
 import asyncio
 import pandas as pd
 import os
