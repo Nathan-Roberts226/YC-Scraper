@@ -1,8 +1,8 @@
-print("✅ Script started running")
 import asyncio
 import pandas as pd
 import os
 import subprocess
+import traceback
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
 BASE_URL = "https://www.ycombinator.com/companies"
@@ -105,7 +105,17 @@ async def run_scraper(pages=1):
     df.to_excel(output_path, index=False)
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
+def main():
+    print(">>> Entering run_scraper via asyncio")
+    try:
+        asyncio.run(run_scraper(pages=1))
+    except Exception as e:
+        print(f"❌ Script crashed during asyncio.run: {e}")
+        traceback.print_exc()
+
 if __name__ == "__main__":
-    print("✅ Script executed — Render is running the file")
+    print("✅ Script executed — calling main()...")
+    main()
+
 
 
