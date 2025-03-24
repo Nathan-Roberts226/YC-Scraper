@@ -1,60 +1,72 @@
-import requests
+import asyncio
 import pandas as pd
-from bs4 import BeautifulSoup
 import os
+from playwright.async_api import async_playwright
 
 BASE_URL = "https://www.ycombinator.com/companies"
 
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-}
-
-def get_company_links(page=1):
+async def get_company_links(page, browser):
     url = f"{BASE_URL}?page={page}"
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-    links = soup.select("a.styles-module__company___nPzU4")
-    return ["https://www.ycombinator.com" + link['href'] for link in links]
+    context = await browser.new_context()
+    page_obj = await context.new_page()
+    await page_obj.goto(url)
+    await page_obj.wait_for_selector("a[data-testid='company-card-name']")
+    links = await page_obj.eval_on_selector_all(
+        "a[data-testid='company-card-name']", "elements => elements.map(el => el.href)"
+    )
+    await context.close()
+    return links
 
-def scrape_company(url):
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
+async def scrape_company(url, browser):
+    context = await browser.new_context()
+    page = await context.new_page()
+    await page.goto(url)
+    await page.wait_for_load_state("domcontentloaded")
 
-    def try_select(selector, index=None):
+    def safe_text(selector):
         try:
-            if index is not None:
-                return soup.select(selector)[index].text.strip()
-            return soup.select_one(selector).text.strip()
+            return page.locator(selector).first.text_content().strip()
         except:
             return ""
 
-    def try_select_all(selector):
+    def safe_all_text(selector):
         try:
-            return [el.text.strip() for el in soup.select(selector)]
+            return ", ".join([el.strip() for el in page.locator(selector).all_text_contents()])
         except:
-            return []
+            return ""
 
-    return {
-        "Name": try_select("h1"),
-        "Website": try_select("a[href^='http']"),
-        "Description": try_select("div.styles-module__description___HUIeN"),
-        "Tags": ", ".join(try_select_all("a.styles-module__pill___2I2W_")),
-        "Location": try_select("div.styles-module__metadata___zyzCz > span", 0),
-        "Stage": try_select("div.styles-module__metadata___zyzCz > span", 1),
-        "Founders": ", ".join(try_select_all("a.styles-module__founder___z_w_r")),
+    try:
+        name = await page.locator("h1").first.text_content()
+    except:
+        name = ""
+
+    company = {
+        "Name": name.strip(),
+        "Website": await safe_text("a[data-testid='company-url']"),
+        "Description": await safe_text("[data-testid='description']"),
+        "Tags": await safe_all_text("a[data-testid='pill']"),
+        "Location": await safe_text("[data-testid='location-pill']"),
+        "Stage": await safe_text("[data-testid='stage-pill']"),
+        "Founders": await safe_all_text("a[data-testid='team-member-name']"),
         "YC URL": url
     }
 
-def main(pages=2):
-    print("Starting YC startup scraper...")
+    await context.close()
+    return company
+
+async def main(pages=4):
+    print("Starting YC startup scraper with Playwright...")
     all_companies = []
-    for page in range(1, pages + 1):
-        print(f"Scraping page {page}...")
-        links = get_company_links(page)
-        for link in links:
-            print(f" - Scraping: {link}")
-            data = scrape_company(link)
-            all_companies.append(data)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        for page_num in range(1, pages + 1):
+            print(f"Scraping page {page_num}...")
+            links = await get_company_links(page_num, browser)
+            for link in links:
+                print(f" - Scraping: {link}")
+                company_data = await scrape_company(link, browser)
+                all_companies.append(company_data)
+        await browser.close()
 
     df = pd.DataFrame(all_companies)
     output_path = os.path.join(os.getcwd(), "yc_startups.xlsx")
@@ -62,4 +74,4 @@ def main(pages=2):
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
 if __name__ == "__main__":
-    main(pages=2) 
+    asyncio.run(main(pages=4))
