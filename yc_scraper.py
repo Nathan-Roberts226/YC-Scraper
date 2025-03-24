@@ -12,13 +12,16 @@ async def get_company_links(page, browser):
     print(f"Opening company list page: {url}")
     context = await browser.new_context()
     page_obj = await context.new_page()
+    print("Navigating to company list page...")
     await page_obj.goto(url)
-    await page_obj.wait_for_timeout(3000)  # wait for JS rendering
+    print("Waiting 3s for page to load...")
+    await page_obj.wait_for_timeout(3000)
     print("Getting company links...")
     try:
         links = await page_obj.eval_on_selector_all(
             "a[href*='/companies/']", "elements => elements.map(el => el.href)"
         )
+        print(f"✅ Got {len(links)} company links on page {page}")
     except Exception as e:
         print(f"Failed to get links: {e}")
         links = []
@@ -66,11 +69,11 @@ async def scrape_company(url, browser):
     }
 
     await context.close()
-    print(f"Scraped: {company['Name']}")
+    print(f"✅ Scraped: {company['Name']}")
     return company
 
 async def run_scraper(pages=1):
-    print("Starting YC startup scraper with Playwright...")
+    print("🚀 Starting YC startup scraper with Playwright...")
     all_companies = []
     async with async_playwright() as p:
         for attempt in range(2):
@@ -88,16 +91,16 @@ async def run_scraper(pages=1):
                     return
 
         for page_num in range(1, pages + 1):
-            print(f"Scraping page {page_num}...")
+            print(f"🧭 Scraping page {page_num}...")
             try:
                 links = await get_company_links(page_num, browser)
-                print(f"Found {len(links)} links on page {page_num}.")
+                print(f"🔗 Found {len(links)} links on page {page_num}.")
                 for link in links:
                     company_data = await scrape_company(link, browser)
                     if company_data:
                         all_companies.append(company_data)
             except Exception as e:
-                print(f"Error scraping page {page_num}: {e}")
+                print(f"⚠️ Error scraping page {page_num}: {e}")
         await browser.close()
 
     df = pd.DataFrame(all_companies)
@@ -106,6 +109,7 @@ async def run_scraper(pages=1):
     print(f"✅ Exported {len(df)} companies to: {output_path}")
 
 def main():
+    print("✅ Script executed — calling main()...")
     print(">>> Entering run_scraper via asyncio")
     try:
         asyncio.run(run_scraper(pages=1))
@@ -114,7 +118,6 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    print("✅ Script executed — calling main()...")
     main()
 
 
