@@ -79,8 +79,7 @@ async def run_scraper(pages=1):
         for attempt in range(2):
             try:
                 print("Launching browser (attempt {} of 2)...".format(attempt + 1))
-               browser = await p.chromium.launch(headless=True, timeout=60000)
-
+                browser = await p.chromium.launch(headless=True, timeout=60000, slow_mo=100)
                 print("✅ Browser launched successfully")
                 break
             except Exception as e:
@@ -120,6 +119,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
